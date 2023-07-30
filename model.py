@@ -62,5 +62,5 @@ class Net_detection(nn.Module):
         x = self.fc2(x)
         x = self.relu(x)
         x = self.fc3(x)
-        x = self.relu(x)
+        # x = self.relu(x)
         return x

@@ -83,7 +83,7 @@ def Run():
     Gdoptrue = torch.tensor(np.array([1]*G.out()).astype(np.float32))
     Gdoptrue =Gdoptrue.to(dev)
     loss_max = 1000000000000000000000000
-    epoch_kol = 4
+    epoch_kol = 1
     if train_dop:
         ft = open(f"floss_dir\\floss_max.txt", 'r')
         loss_max = float(ft.read())
@@ -107,12 +107,12 @@ def Run():
                 # Goutputs = G(x_train[i])
                 Doutputs = D(Dloss_train[i])
                 Dloss = Dcriterion(Doutputs, Ddopfalse)
+                Dsr_loss += float(Dloss.item())
                 # -----------------------
                 Doptimizer.zero_grad()
                 Dloss.backward(retain_graph=True)
                 Doptimizer.step()
                 # ----------------------------
-                Dsr_loss += float(Dloss.item())
                 # очень самнительно Gdop. Мы считаем ошибку, как будто выход G должен состоять из 1
                 # Glossone=Gcriterion(Goutputs,Gdop)
                 # Gloss.append(Glossone)
@@ -124,12 +124,12 @@ def Run():
 
                 Doutputs = D(y_train[i])
                 Dloss = Dcriterion(Doutputs, Ddoptrue)
+                Dsr_loss += float(Dloss.item())
                 # -----------------------
                 Doptimizer.zero_grad()
                 Dloss.backward()
                 Doptimizer.step()
                 # ----------------------------
-                Dsr_loss += float(Dloss.item())
             # print(Dsr_loss / (len(x_train) + len(y_train)))
         print("Gloss")
         for i in (range(len(Dloss_train))):
