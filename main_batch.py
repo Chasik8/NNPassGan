@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from model import Net_rand, Net_detection
+from model_batch import Net_rand, Net_detection
 import torch.nn as nn
 import time
 from tqdm import tqdm
@@ -44,6 +44,7 @@ def save(G, D,kol_model):
 def Run():
     k_model = 0
     train_dop = False
+    batch=100
     try:
         ff = open('conf_model.txt', 'r')
         k_model = int(ff.read())
@@ -56,7 +57,7 @@ def Run():
         ff.write(str(1))
         ff.close()
     dev = torch.device("cuda:0")
-    G = Net_rand()
+    G = Net_rand(batch)
     D = Net_detection()
     if train_dop:
         PATH = f"models\Gmodel{str(k_model - 1)}.pth"
@@ -96,8 +97,8 @@ def Run():
         x_train = x_train.to(dev)
         Dloss_train = []
         Depoch_kol = 100
-        for i in range(len(x_train)):
-            Dloss_train.append(G(x_train[i]))
+        for i in range(0,len(x_train),batch):
+            Dloss_train.append(G(x_train[i:i+batch]))
         print("Train")
         Dsr_loss = float(0)
         for Depoch in range(Depoch_kol):
@@ -132,7 +133,7 @@ def Run():
                 # ----------------------------
             # print(Dsr_loss / (len(x_train) + len(y_train)))
         print("Gloss")
-        for i in (range(len(Dloss_train))):
+        for i in (range(0, len(Dloss_train), batch)):
 
             # Goutputs = G(x_train[i])
             # Doutputs = D(Dloss_train[i])
@@ -166,13 +167,3 @@ def print_hi(name):
 
 if __name__ == '__main__':
     print_hi('PyCharm')
-# flatten
-# >>> t = torch.tensor([[[1, 2],
-# ...                    [3, 4]],
-# ...                   [[5, 6],
-# ...                    [7, 8]]])
-# >>> torch.flatten(t)
-# tensor([1, 2, 3, 4, 5, 6, 7, 8])
-# >>> torch.flatten(t, start_dim=1)
-# tensor([[1, 2, 3, 4],
-#         [5, 6, 7, 8]])
