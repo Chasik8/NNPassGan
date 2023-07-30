@@ -6,7 +6,7 @@ import time
 from tqdm import tqdm
 
 def Trainx(kol):
-    batch = 1
+    batch = 1000
     train_x = torch.from_numpy(np.random.normal(0, 1, size=(batch, kol)).astype(np.float32))
     return train_x
 
@@ -14,7 +14,7 @@ def Trainx(kol):
 def Trainy(kol):
     f = open("10_million_password_list_top_1000000.txt.txt", 'r')
     l = list(map(str, f.read().split()))
-    l = l[:10]
+    l = l[:1000]
     f.close()
     train_y = []
     for i in range(len(l)):
@@ -36,9 +36,9 @@ def Trainy(kol):
     return train_y
 
 
-def save(G, D):
-    torch.save(G.state_dict(), "D:\\Project\\Python\\Neroset_PassGan\\Gmodel1.pth")
-    torch.save(D.state_dict(), "D:\\Project\\Python\\Neroset_PassGan\\Dmodel1.pth")
+def save(G, D,kol_model):
+    torch.save(G.state_dict(), f"D:\\Project\\Python\\Neroset_PassGan\\models\\Gmodel{str(kol_model)}.pth")
+    torch.save(D.state_dict(), f"D:\\Project\\Python\\Neroset_PassGan\\models\\Dmodel{str(kol_model)}.pth")
 
 
 def Run():
@@ -80,8 +80,10 @@ def Run():
     Ddopfalse = Ddopfalse.to(dev)
     Ddoptrue = torch.tensor(np.array([1]).astype(np.float32))
     Ddoptrue = Ddoptrue.to(dev)
+    Gdoptrue = torch.tensor(np.array([1]*G.out()).astype(np.float32))
+    Gdoptrue =Gdoptrue.to(dev)
     loss_max = 1000000000000000000000000
-    epoch_kol = 2
+    epoch_kol = 1
     if train_dop:
         ft = open(f"floss_dir\\floss_max.txt", 'r')
         loss_max = float(ft.read())
@@ -93,26 +95,24 @@ def Run():
         x_train = Trainx(G.inp())
         x_train = x_train.to(dev)
         Dloss_train = []
-        Depoch_kol = 10
+        Depoch_kol = 100
         for i in range(len(x_train)):
             Dloss_train.append(G(x_train[i]))
         print("Train")
-        Dsr_loss = 0
+        Dsr_loss = float(0)
         for Depoch in range(Depoch_kol):
-            Dloss = 0
-            for i in tqdm(range(len(x_train))):
-                # images = Variable(images.view(-1, 28 * 28))  # Конвертация тензора в переменную: изменяем изображение с
-                # вектора, размером 784 на матрицу 28 x 28 labels = Variable(labels)
-                # Goptimizer.zero_grad()
-                Doptimizer.zero_grad()
+            Dsr_loss = float(0)
+            for i in (range(len(x_train))):
+
                 # Goutputs = G(x_train[i])
                 Doutputs = D(Dloss_train[i])
-                Dloss = Dcriterion(Dloss_train[i], Ddopfalse)
+                Dloss = Dcriterion(Doutputs, Ddopfalse)
+                Dsr_loss += float(Dloss.item())
                 # -----------------------
+                Doptimizer.zero_grad()
                 Dloss.backward(retain_graph=True)
                 Doptimizer.step()
                 # ----------------------------
-                Dsr_loss += Dloss.item()
                 # очень самнительно Gdop. Мы считаем ошибку, как будто выход G должен состоять из 1
                 # Glossone=Gcriterion(Goutputs,Gdop)
                 # Gloss.append(Glossone)
@@ -120,28 +120,32 @@ def Run():
             #     Goptimizer.zero_grad()
             #     Gloss[i].backward()
             #     Goptimizer.step()
-            for i in tqdm(range(len(y_train))):
-                Doptimizer.zero_grad()
+            for i in (range(len(y_train))):
+
                 Doutputs = D(y_train[i])
                 Dloss = Dcriterion(Doutputs, Ddoptrue)
+                Dsr_loss += float(Dloss.item())
                 # -----------------------
-                Dloss.backward(retain_graph=True)
+                Doptimizer.zero_grad()
+                Dloss.backward()
                 Doptimizer.step()
                 # ----------------------------
-                Dsr_loss += Dloss.item()
+            # print(Dsr_loss / (len(x_train) + len(y_train)))
         print("Gloss")
-        for i in tqdm(range(len(x_train))):
-            Goptimizer.zero_grad()
+        for i in (range(len(Dloss_train))):
+
             # Goutputs = G(x_train[i])
-            Doutputs = D(Dloss_train[i])
-            Gloss = Gcriterion(Dloss_train[i], Ddoptrue)
+            # Doutputs = D(Dloss_train[i])
+            Gloss = Gcriterion(Dloss_train[i], Gdoptrue)
             # -----------------------
-            Gloss.backward()
+            Goptimizer.zero_grad()
+            Gloss.backward(retain_graph=True)
+            # torch.clip_grad_norm_(value_model.parameters(), clip_grad_norm)
             Goptimizer.step()
             # ----------------------------
         # print(loss.data.text)
-        print(Dsr_loss/(len(x_train)+len(y_train)))
-        if Dsr_loss / (len(x_train)+len(y_train)) < loss_max:
+        print(Dsr_loss/(len(x_train)+len(y_train))/Depoch_kol)
+        if Dsr_loss / (len(x_train)+len(y_train))/Depoch_kol < loss_max:
             loss_max = Dsr_loss / len(x_train)
             torch.save(G.state_dict(), fr"models\Gmodel{k_model}_max.pth")
             torch.save(D.state_dict(), fr"models\Dmodel{k_model}_max.pth")
@@ -151,10 +155,9 @@ def Run():
         if epoch % 10 == 0:
             torch.save(G.state_dict(), fr"models\Gmodel{k_model}.pth")
             torch.save(D.state_dict(), fr"models\Dmodel{k_model}.pth")
-    torch.save(G.state_dict(), fr"models\Gmodel{k_model}.pth")
-    torch.save(D.state_dict(), fr"models\Dmodel{k_model}.pth")
-    save(G, D)
-
+    torch.save(G.state_dict(), fr"models\Gmodel{str(k_model)}.pth")
+    torch.save(D.state_dict(), fr"models\Dmodel{str(k_model)}.pth")
+    # save(G, D, k_model)
 def print_hi(name):
     tim = time.time()
     Run()
