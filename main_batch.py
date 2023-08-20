@@ -1,24 +1,9 @@
 import torch
 import numpy as np
-from model import Net_rand, Net_detection
+from model_batch import Net_rand, Net_detection
 import torch.nn as nn
 import time
 from tqdm import tqdm
-import torch.nn.functional as F
-from torch.autograd import Variable
-
-
-class BinomialDevianceLoss(nn.Module):
-    def __init__(self):
-        super().__init__()
-        # self.L = nn.L1Loss()
-        self.L = nn.MSELoss(size_average=None, reduce=None, reduction='mean')
-    def forward(self, x, D):
-        a = D(x)
-        a = self.L(torch.ones(1).to("cuda:0"), a)
-        a = Variable(a, requires_grad=True).to("cuda:0")
-        return a
-
 
 def Trainx(kol):
     batch = 1000
@@ -51,7 +36,7 @@ def Trainy(kol):
     return train_y
 
 
-def save(G, D, kol_model):
+def save(G, D,kol_model):
     torch.save(G.state_dict(), f"D:\\Project\\Python\\Neroset_PassGan\\models\\Gmodel{str(kol_model)}.pth")
     torch.save(D.state_dict(), f"D:\\Project\\Python\\Neroset_PassGan\\models\\Dmodel{str(kol_model)}.pth")
 
@@ -59,6 +44,7 @@ def save(G, D, kol_model):
 def Run():
     k_model = 0
     train_dop = False
+    batch=100
     try:
         ff = open('conf_model.txt', 'r')
         k_model = int(ff.read())
@@ -71,7 +57,7 @@ def Run():
         ff.write(str(1))
         ff.close()
     dev = torch.device("cuda:0")
-    G = Net_rand()
+    G = Net_rand(batch)
     D = Net_detection()
     if train_dop:
         PATH = f"models\Gmodel{str(k_model - 1)}.pth"
@@ -83,7 +69,7 @@ def Run():
     G.to(dev)
     D.to(dev)
     Dcriterion = nn.MSELoss(size_average=None, reduce=None, reduction='mean')
-    Gcriterion = BinomialDevianceLoss()
+    Gcriterion = nn.MSELoss(size_average=None, reduce=None, reduction='mean')
     # optimizer = torch.optim.Adam(net.parameters(), lr=net.learning_rate)
     Goptimizer = torch.optim.Adam(G.parameters())
     Doptimizer = torch.optim.Adam(D.parameters())
@@ -95,10 +81,10 @@ def Run():
     Ddopfalse = Ddopfalse.to(dev)
     Ddoptrue = torch.tensor(np.array([1]).astype(np.float32))
     Ddoptrue = Ddoptrue.to(dev)
-    Gdoptrue = torch.tensor(np.array([1] * G.out()).astype(np.float32))
-    Gdoptrue = Gdoptrue.to(dev)
+    Gdoptrue = torch.tensor(np.array([1]*G.out()).astype(np.float32))
+    Gdoptrue =Gdoptrue.to(dev)
     loss_max = 1000000000000000000000000
-    epoch_kol = 100
+    epoch_kol = 1
     if train_dop:
         ft = open(f"floss_dir\\floss_max.txt", 'r')
         loss_max = float(ft.read())
@@ -110,16 +96,15 @@ def Run():
         x_train = Trainx(G.inp())
         x_train = x_train.to(dev)
         Dloss_train = []
-        Depoch_kol = 2
-        for i in range(len(x_train)):
-            Dloss_train.append(G(x_train[i]))
-        print(epoch)
+        Depoch_kol = 100
+        for i in range(0,len(x_train),batch):
+            Dloss_train.append(G(x_train[i:i+batch]))
         print("Train")
         Dsr_loss = float(0)
-        Gsr_loss = float(0)
         for Depoch in range(Depoch_kol):
             Dsr_loss = float(0)
             for i in (range(len(x_train))):
+
                 # Goutputs = G(x_train[i])
                 Doutputs = D(Dloss_train[i])
                 Dloss = Dcriterion(Doutputs, Ddopfalse)
@@ -137,6 +122,7 @@ def Run():
             #     Gloss[i].backward()
             #     Goptimizer.step()
             for i in (range(len(y_train))):
+
                 Doutputs = D(y_train[i])
                 Dloss = Dcriterion(Doutputs, Ddoptrue)
                 Dsr_loss += float(Dloss.item())
@@ -147,28 +133,25 @@ def Run():
                 # ----------------------------
             # print(Dsr_loss / (len(x_train) + len(y_train)))
         print("Gloss")
-        for i in (range(len(Dloss_train))):
+        for i in (range(0, len(Dloss_train), batch)):
+
             # Goutputs = G(x_train[i])
             # Doutputs = D(Dloss_train[i])
-            # Gloss = Gcriterion(Dloss_train[i], Gdoptrue)
-            # Gloss = Dcriterion(D(Dloss_train[i]), torch.ones(1).to(dev))
-            Gloss = Gcriterion(Dloss_train[i], D)
+            Gloss = Gcriterion(Dloss_train[i], Gdoptrue)
             # -----------------------
             Goptimizer.zero_grad()
             Gloss.backward(retain_graph=True)
             # torch.clip_grad_norm_(value_model.parameters(), clip_grad_norm)
             Goptimizer.step()
-            Gsr_loss += float(Gloss.item())
             # ----------------------------
         # print(loss.data.text)
-        print("D:", Dsr_loss / (len(x_train) + len(y_train)) / Depoch_kol)
-        print("G:", Gsr_loss / (len(Dloss_train)))
-        if Dsr_loss / (len(x_train) + len(y_train)) / Depoch_kol < loss_max:
+        print(Dsr_loss/(len(x_train)+len(y_train))/Depoch_kol)
+        if Dsr_loss / (len(x_train)+len(y_train))/Depoch_kol < loss_max:
             loss_max = Dsr_loss / len(x_train)
             torch.save(G.state_dict(), fr"models\Gmodel{k_model}_max.pth")
             torch.save(D.state_dict(), fr"models\Dmodel{k_model}_max.pth")
             floss_max = open("floss_dir\\floss_max.txt", 'w')
-            floss_max.write(str(Dsr_loss / (len(x_train) + len(y_train))))
+            floss_max.write(str(Dsr_loss / (len(x_train)+len(y_train))))
             floss_max.close()
         if epoch % 10 == 0:
             torch.save(G.state_dict(), fr"models\Gmodel{k_model}.pth")
@@ -176,8 +159,6 @@ def Run():
     torch.save(G.state_dict(), fr"models\Gmodel{str(k_model)}.pth")
     torch.save(D.state_dict(), fr"models\Dmodel{str(k_model)}.pth")
     # save(G, D, k_model)
-
-
 def print_hi(name):
     tim = time.time()
     Run()
@@ -186,13 +167,3 @@ def print_hi(name):
 
 if __name__ == '__main__':
     print_hi('PyCharm')
-# flatten
-# >>> t = torch.tensor([[[1, 2],
-# ...                    [3, 4]],
-# ...                   [[5, 6],
-# ...                    [7, 8]]])
-# >>> torch.flatten(t)
-# tensor([1, 2, 3, 4, 5, 6, 7, 8])
-# >>> torch.flatten(t, start_dim=1)
-# tensor([[1, 2, 3, 4],
-#         [5, 6, 7, 8]])
