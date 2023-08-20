@@ -10,7 +10,7 @@ class Net_rand(nn.Module):
     def __init__(self):
         self.input_size = 100
         # Количество узлов на скрытом слое
-        self.num_classes = 50  # Число классов на выходе. В этом случае от 0 до 9
+        self.num_classes = 40*8  # Число классов на выходе. В этом случае от 0 до 9
         # self.num_epochs = 10**5  # Количество тренировок всего набора данных
         # self.batch_size = 100  # Размер входных данных для одной итерации
         # self.learning_rate = 0.001  # Скорость конвергенции
@@ -45,7 +45,7 @@ class Net_rand(nn.Module):
 
 class Net_detection(nn.Module):
     def __init__(self):
-        self.input_size = 50
+        self.input_size = 40*8
         # Количество узлов на скрытом слое
         self.num_classes = 1  # Число классов на выходе. В этом случае от 0 до 9
         # self.num_epochs = 10**5  # Количество тренировок всего набора данных
