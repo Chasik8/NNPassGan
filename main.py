@@ -11,8 +11,8 @@ from torch.autograd import Variable
 class BinomialDevianceLoss(nn.Module):
     def __init__(self):
         super().__init__()
-        self.L = nn.L1Loss()
-        # self.L = nn.MSELoss(size_average=None, reduce=None, reduction='mean')
+        # self.L = nn.L1Loss()
+        self.L = nn.MSELoss(size_average=None, reduce=None, reduction='mean')
 
     def forward(self, x):
         # a = D(x)
@@ -67,8 +67,10 @@ def save(G, D, kol_model):
 def Run():
     k_model = 0
     train_dop = False
-    epoch_kol = 200
-    batch = 10000
+    epoch_kol = 10
+    batch = 1000
+    Depoch_kol = 10
+    krytery = 10 ** (-1)
     try:
         ff = open('conf_model.txt', 'r')
         k_model = int(ff.read())
@@ -92,11 +94,13 @@ def Run():
         D.eval()
     G.to(dev)
     D.to(dev)
+    D.train()
+    G.train()
     Dcriterion = nn.MSELoss(size_average=None, reduce=None, reduction='mean')
     Gcriterion = BinomialDevianceLoss()
     # optimizer = torch.optim.Adam(net.parameters(), lr=net.learning_rate)
     Goptimizer = torch.optim.Adam(G.parameters())
-    Doptimizer = torch.optim.Adam(D.parameters())
+    Doptimizer = torch.optim.Adam(D.parameters(), lr=0.01)
     y_train = Trainy(G.out(), batch)
     y_train = y_train.to(dev)
     # Gdop = torch.ones([np.ones(G.out()).shape[0], 1])
@@ -113,26 +117,22 @@ def Run():
         loss_max = float(ft.read())
         ft.close()
     # ----------------------------------------------------------------------
+    Gsr_loss = float(0)
     for epoch in range(epoch_kol):
         # for i, (images, labels) in enumerate(train_loader):  # Загрузка партии изображений с индексом, данными,
         # классом
         x_train = Trainx(G.inp(), batch)
         x_train = x_train.to(dev)
         Dloss_train = []
-        Depoch_kol = 2
-        # for i in range(len(x_train)):
-        #     Dloss_train.append(G(x_train[i]))
+        for i in range(len(x_train)):
+            Dloss_train.append(G(x_train[i]))
         print(epoch)
         print("Train")
         Dsr_loss = float(0)
-        Gsr_loss = float(0)
-        D.train()
-        G.train()
         for Depoch in range(Depoch_kol):
-            Dsr_loss = float(0)
             for i in (range(len(x_train))):
                 # Goutputs = G(x_train[i])
-                Doutputs = D(G(x_train[i]))
+                Doutputs = D(Dloss_train[i])
                 Dloss = Dcriterion(Doutputs, Ddopfalse)
                 Dsr_loss += float(Dloss.item())
                 # -----------------------
@@ -158,27 +158,29 @@ def Run():
 
             # ----------------------------
             # print(Dsr_loss / (len(x_train) + len(y_train)))
-        print("Gloss")
-        for i in (range(len(x_train))):
-            # Goutputs = G(x_train[i])
-            # Doutputs = D(Dloss_train[i])
-            # Gloss = Gcriterion(Dloss_train[i], Gdoptrue)
-            # Gloss = Dcriterion(D(Dloss_train[i]), torch.ones(1).to(dev))
-            a = D(G(x_train[i]))
-            a = (a >= 0.5).float()
-            Gloss = Gcriterion(a)
-            # -----------------------
-            # Goptimizer.zero_grad()
-            Gloss.backward()
-            # torch.clip_grad_norm_(value_model.parameters(), clip_grad_norm)
-            Goptimizer.step()
-            Gsr_loss += float(Gloss.item())
+        print("D:", Dsr_loss / (len(x_train) + len(y_train)) / Depoch_kol)
+        if Dsr_loss / (len(x_train) + len(y_train)) / Depoch_kol<krytery:
+            print("Gloss")
+            Gsr_loss = float(0)
+            for i in (range(len(x_train))):
+                # Goutputs = G(x_train[i])
+                # Doutputs = D(Dloss_train[i])
+                # Gloss = Gcriterion(Dloss_train[i], Gdoptrue)
+                # Gloss = Dcriterion(D(Dloss_train[i]), torch.ones(1).to(dev))
+                a = D(G(x_train[i]))
+                # a = (a >= 0.5).float()
+                Gloss = Gcriterion(a)
+                # -----------------------
+                # Goptimizer.zero_grad()
+                Gloss.backward()
+                # torch.clip_grad_norm_(value_model.parameters(), clip_grad_norm)
+                Goptimizer.step()
+                Gsr_loss += float(Gloss.item())
+            print("G:", Gsr_loss / (len(x_train)))
             # ----------------------------
         # print(loss.data.text)
-        print("D:", Dsr_loss / (len(x_train) + len(y_train)) / Depoch_kol)
-        print("G:", Gsr_loss / (len(x_train)))
         # if Dsr_loss / (len(x_train) + len(y_train)) / Depoch_kol < loss_max:
-        if Gsr_loss / len(x_train) < loss_max and 10 ** (-4) >= Dsr_loss / (len(x_train) + len(y_train)) / Depoch_kol:
+        if Gsr_loss / len(x_train) < loss_max and krytery >= Dsr_loss / (len(x_train) + len(y_train)) / Depoch_kol:
             loss_max = Gsr_loss / len(x_train)
             torch.save(G.state_dict(), fr"models\Gmodel{k_model}_max.pth")
             torch.save(D.state_dict(), fr"models\Dmodel{k_model}_max.pth")
