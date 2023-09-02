@@ -68,7 +68,7 @@ def Run():
     k_model = 0
     train_dop = False
     epoch_kol = 10
-    batch = 1000
+    batch = 10000
     Depoch_kol = 10
     krytery = 10 ** (-1)
     try:
@@ -99,7 +99,7 @@ def Run():
     Dcriterion = nn.MSELoss(size_average=None, reduce=None, reduction='mean')
     Gcriterion = BinomialDevianceLoss()
     # optimizer = torch.optim.Adam(net.parameters(), lr=net.learning_rate)
-    Goptimizer = torch.optim.Adam(G.parameters())
+    Goptimizer = torch.optim.Adam(G.parameters(), lr=0.01)
     Doptimizer = torch.optim.Adam(D.parameters(), lr=0.01)
     y_train = Trainy(G.out(), batch)
     y_train = y_train.to(dev)
