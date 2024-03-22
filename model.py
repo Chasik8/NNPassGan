@@ -21,8 +21,8 @@ class Net_rand(nn.Module):
         self.fc2 = nn.Linear(1000,
                              5000)
         self.fc3 = nn.Linear(5000,
-                             100)
-        self.fc4 = nn.Linear(100,
+                             1000)
+        self.fc4 = nn.Linear(1000,
                              self.num_classes)
         self.relu = nn.ReLU()  # Нелинейный слой ReLU max(0,x)
 
@@ -54,8 +54,8 @@ class Net_detection(nn.Module):
         # -----------------------------------------------------------
         super(Net_detection, self).__init__()  # Наследуемый родительским классом nn.Module
         self.fc1 = nn.Linear(self.input_size,
-                             500)  # 1й связанный слой: 784 (данные входа) -> 500 (скрытый узел)
-        self.fc2 = nn.Linear(500,
+                             1000)  # 1й связанный слой: 784 (данные входа) -> 500 (скрытый узел)
+        self.fc2 = nn.Linear(1000,
                              100)
         self.fc3 = nn.Linear(100,
                              self.num_classes)

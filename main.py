@@ -67,7 +67,7 @@ def save(G, D, kol_model):
 def Run():
     k_model = 0
     train_dop = False
-    epoch_kol = 100
+    epoch_kol = 1
     batch = 1000
     try:
         ff = open('conf_model.txt', 'r')
@@ -119,7 +119,7 @@ def Run():
         x_train = Trainx(G.inp(), batch)
         x_train = x_train.to(dev)
         Dloss_train = []
-        Depoch_kol = 2
+        Depoch_kol = 1
         for i in range(len(x_train)):
             Dloss_train.append(G(x_train[i]))
         print(epoch)

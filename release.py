@@ -37,14 +37,22 @@ def Run():
                 h = False
                 out_np = out.detach().cpu().numpy()
                 s = ''
-                for j in out_np:
-                    jj = int(j * 256)
-                    if jj < 0:
-                        s += chr(0)
-                    elif jj > 255:
-                        s += chr(255)
+                sym = ""
+                for j in range(len(out_np)):
+                    if j >= 0.5:
+                        sym += '1'
                     else:
-                        s += chr(jj)
+                        sym += '0'
+                    if j % 8 == 7:
+                        s += chr(int(sym, 2))
+                # for j in out_np:
+                #     jj = int(j * 256)
+                #     if jj < 0:
+                #         s += chr(0)
+                #     elif jj > 255:
+                #         s += chr(255)
+                #     else:
+                #         s += chr(jj)
 
                 f.write(s)
                 f.write('\n')
