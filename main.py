@@ -23,7 +23,7 @@ class BinomialDevianceLoss(nn.Module):
 
 def Trainx(kol, batcht):
     batch = batcht
-    train_x = torch.from_numpy(np.random.normal(0, 1, size=(batch, kol)).astype(np.float32))
+    train_x = torch.from_numpy(np.random.uniform(0, 1, size=(batch, kol)).astype(np.float32))
     return train_x
 
 
@@ -67,9 +67,9 @@ def save(G, D, kol_model):
 def Run_hab():
     k_model = 0
     train_dop = False
-    Gk = 0
+    Gk = 1
     Dk = 1
-    epoch_kol = 50
+    epoch_kol = 30
     batch = 1000
     try:
         ff = open('conf_model.txt', 'r')
@@ -155,19 +155,27 @@ def Run_hab():
                 Goptimizer.step()
                 Gsr_loss += float(G_loss.item())
         print(epoch)
-        print("D:", Dsr_loss / len(x_train))
-        print("G:", Gsr_loss / len(x_train))
+        if Gk != 0:
+            Gsr_loss /= len(x_train) * Gk
+        else:
+            Gsr_loss = 1e10
+        if Dk != 0:
+            Dsr_loss /= len(x_train) * Dk
+        else:
+            Dsr_loss = 1e10
+        print("D:", Dsr_loss)
+        print("G:", Gsr_loss)
         # if Dsr_loss / (len(x_train) + len(y_train)) / Depoch_kol < loss_max:
-        if Gsr_loss / len(x_train) < loss_max and 10 ** (-4) >= Dsr_loss:
-            loss_max = Gsr_loss / len(x_train)
+        if Gsr_loss < loss_max and 10 ** (-4) >= Dsr_loss:
+            loss_max = Gsr_loss
             torch.save(G.state_dict(), fr"models\Gmodel{k_model}_max.pth")
             torch.save(D.state_dict(), fr"models\Dmodel{k_model}_max.pth")
             floss_max = open("floss_dir\\floss_max.txt", 'w')
-            floss_max.write(str(Dsr_loss / (len(x_train) + len(y_train))))
+            floss_max.write(str(Dsr_loss))
             floss_max.close()
-        if epoch % 10 == 0:
-            torch.save(G.state_dict(), fr"models\Gmodel{k_model}.pth")
-            torch.save(D.state_dict(), fr"models\Dmodel{k_model}.pth")
+        # if epoch % 10 == 0:
+        #     torch.save(G.state_dict(), fr"models\Gmodel{k_model}.pth")
+        #     torch.save(D.state_dict(), fr"models\Dmodel{k_model}.pth")
         torch.save(G.state_dict(), fr"models\Gmodel{str(k_model)}.pth")
         torch.save(D.state_dict(), fr"models\Dmodel{str(k_model)}.pth")
 

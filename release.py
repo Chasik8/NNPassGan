@@ -7,12 +7,14 @@ import time
 
 def Trainx(kol):
     batch = 1
-    train_x = torch.from_numpy(np.random.normal(0, 1, size=(batch, kol)).astype(np.float32))
+    train_x = torch.from_numpy(np.random.uniform(0, 1, size=(batch, kol)).astype(np.float32))
     return train_x
 
 
 def Run():
-    k_model = 0
+    ff = open('conf_model.txt', 'r')
+    k_model = int(ff.read()) - 1
+    ff.close()
     dev = torch.device("cuda:0")
     G = Net_rand()
     D = Net_detection()
@@ -29,22 +31,26 @@ def Run():
     for i in range(kol_passsord):
         h = True
         while h:
-            x = Trainx(G.inp())
+            x = Trainx(G.inp())[0]
             x = x.to(dev)
-            out = G(x[0])
+            out = G(x)
             prow = D(out)
+            print(prow.detach().cpu().numpy()[0])
             if prow.detach().cpu().numpy()[0] >= 0.5:
                 h = False
                 out_np = out.detach().cpu().numpy()
                 s = ''
                 sym = ""
                 for j in range(len(out_np)):
-                    if j >= 0.5:
+                    print(out_np[j])
+                    if out_np[j] >= 0.5:
                         sym += '1'
                     else:
                         sym += '0'
                     if j % 8 == 7:
-                        s += chr(int(sym, 2))
+                        dig = int(sym, 2)
+                        s += chr(dig)
+                        sym = ''
                 # for j in out_np:
                 #     jj = int(j * 256)
                 #     if jj < 0:
