@@ -69,7 +69,7 @@ def Run_hab():
     train_dop = False
     Gk = 1
     Dk = 1
-    epoch_kol = 30
+    epoch_kol = 2
     batch = 1000
     try:
         ff = open('conf_model.txt', 'r')
@@ -156,11 +156,11 @@ def Run_hab():
                 Gsr_loss += float(G_loss.item())
         print(epoch)
         if Gk != 0:
-            Gsr_loss /= len(x_train) * Gk
+            Gsr_loss /= len(y_train) * Gk
         else:
             Gsr_loss = 1e10
         if Dk != 0:
-            Dsr_loss /= len(x_train) * Dk
+            Dsr_loss /= len(y_train) * Dk
         else:
             Dsr_loss = 1e10
         print("D:", Dsr_loss)
@@ -236,67 +236,60 @@ def Run():
         x_train = x_train.to(dev)
         Dloss_train = []
         Depoch_kol = 1
+        Gepoch_kol = 1
+        train_D = False
         for i in range(len(x_train)):
             Dloss_train.append(G(x_train[i]))
         print(epoch)
         print("Train")
         Dsr_loss = float(0)
-        Gsr_loss = float(0)
         for Depoch in range(Depoch_kol):
             Dsr_loss = float(0)
-            for i in (range(len(x_train))):
-                # Goutputs = G(x_train[i])
-                Doutputs = D(Dloss_train[i])
-                Dloss = Dcriterion(Doutputs, Ddopfalse)
-                Dsr_loss += float(Dloss.item())
-                # -----------------------
-                Doptimizer.zero_grad()
-                Dloss.backward(retain_graph=True)
-                Doptimizer.step()
-                # ----------------------------
-                # очень самнительно Gdop. Мы считаем ошибку, как будто выход G должен состоять из 1
-                # Glossone=Gcriterion(Goutputs,Gdop)
-                # Gloss.append(Glossone)
-            # for i in range(len(Gloss)):
-            #     Goptimizer.zero_grad()
-            #     Gloss[i].backward()
-            #     Goptimizer.step()
-            for i in (range(len(y_train))):
-                Doutputs = D(y_train[i])
-                Dloss = Dcriterion(Doutputs, Ddoptrue)
-                Dsr_loss += float(Dloss.item())
-                # -----------------------
-                Doptimizer.zero_grad()
-                Dloss.backward()
-                Doptimizer.step()
-                # ----------------------------
+            if train_D:
+                for i in (range(len(x_train))):
+                    # Goutputs = G(x_train[i])
+                    Doutputs = D(Dloss_train[i])
+                    Dloss = Dcriterion(Doutputs, Ddopfalse)
+                    Dsr_loss += float(Dloss.item())
+                    # -----------------------
+                    Doptimizer.zero_grad()
+                    Dloss.backward(retain_graph=True)
+                    Doptimizer.step()
+                for i in (range(len(y_train))):
+                    Doutputs = D(y_train[i])
+                    Dloss = Dcriterion(Doutputs, Ddoptrue)
+                    Dsr_loss += float(Dloss.item())
+                    # -----------------------
+                    Doptimizer.zero_grad()
+                    Dloss.backward()
+                    Doptimizer.step()
+                    # ----------------------------
+            else:
+                Dsr_loss = 10 ** -5
             # print(Dsr_loss / (len(x_train) + len(y_train)))
         print("Gloss")
-        for i in (range(len(x_train))):
-            # Goutputs = G(x_train[i])
-            # Doutputs = D(Dloss_train[i])
-            # Gloss = Gcriterion(Dloss_train[i], Gdoptrue)
-            # Gloss = Dcriterion(D(Dloss_train[i]), torch.ones(1).to(dev))
-            Gloss = Gcriterion(G(x_train[i]), D)
-            # -----------------------
-            Goptimizer.zero_grad()
-            Gloss.backward(retain_graph=True)
-            # torch.clip_grad_norm_(value_model.parameters(), clip_grad_norm)
-            Goptimizer.step()
-            Gsr_loss += float(Gloss.item())
-            # ----------------------------
+        for Gepoch in range(Gepoch_kol):
+            Gsr_loss = float(0)
+            for i in (range(len(x_train))):
+                Gloss = Gcriterion(G(x_train[i]), D)
+                # -----------------------
+                Goptimizer.zero_grad()
+                Gloss.backward(retain_graph=True)
+                Goptimizer.step()
+                Gsr_loss += float(Gloss.item())
+                # ----------------------------
         # print(loss.data.text)
         print("D:", Dsr_loss / (len(x_train) + len(y_train)) / Depoch_kol)
         print("G:", Gsr_loss / (len(Dloss_train)))
         # if Dsr_loss / (len(x_train) + len(y_train)) / Depoch_kol < loss_max:
-        if Gsr_loss / len(x_train) < loss_max and 10 ** (-4) >= Dsr_loss:
+        if Gsr_loss / len(x_train) < loss_max and 10**(-4) >= Dsr_loss:
             loss_max = Gsr_loss / len(x_train)
             torch.save(G.state_dict(), fr"models\Gmodel{k_model}_max.pth")
             torch.save(D.state_dict(), fr"models\Dmodel{k_model}_max.pth")
             floss_max = open("floss_dir\\floss_max.txt", 'w')
             floss_max.write(str(Dsr_loss / (len(x_train) + len(y_train))))
             floss_max.close()
-        if epoch % 10 == 0:
+        if epoch % 1 == 0:
             torch.save(G.state_dict(), fr"models\Gmodel{k_model}.pth")
             torch.save(D.state_dict(), fr"models\Dmodel{k_model}.pth")
     torch.save(G.state_dict(), fr"models\Gmodel{str(k_model)}.pth")
