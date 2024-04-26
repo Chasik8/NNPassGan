@@ -14,6 +14,7 @@ def Trainx(kol):
 def Run():
     ff = open('conf_model.txt', 'r')
     k_model = int(ff.read()) - 1
+    # k_model = 4
     ff.close()
     dev = torch.device("cuda:0")
     G = Net_rand()
@@ -27,21 +28,27 @@ def Run():
     G.to(dev)
     D.to(dev)
     f = open("Output.txt", 'w')
-    f_log=open("Output_log.txt", 'w')
-    kol_passsord = 10
+    f_log = open("Output_log.txt", 'w')
+    kol_passsord = 1
+    k = 0
     for i in range(kol_passsord):
         h = True
         while h:
             x = Trainx(G.inp())[0]
+            # x=torch.from_numpy(np.array([0 for i in range(int(G.inp()))]).astype(np.float32))
             x = x.to(dev)
             out = G(x)
             prow = D(out)
+            if k % 1e3 == 0:
+                print(k)
+            k += 1
             # print(prow.detach().cpu().numpy()[0])
             if prow.detach().cpu().numpy()[0] >= 0.5:
+                print(i)
                 h = False
                 out_np = out.detach().cpu().numpy()
                 s = ''
-                s_log=''
+                s_log = ''
                 sym = ""
                 for j in range(len(out_np)):
                     # print(out_np[j])
@@ -53,7 +60,7 @@ def Run():
                         dig = int(sym, 2)
                         if dig != 0:
                             s += chr(dig)
-                        s_log+=chr(dig)
+                        s_log += chr(dig)
                         sym = ''
                 # for j in out_np:
                 #     jj = int(j * 256)
