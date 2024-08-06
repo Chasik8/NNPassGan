@@ -7,16 +7,17 @@ from tqdm import tqdm
 from torch.autograd import Variable
 from keyboard import is_pressed
 
+
 def Trainx(kol, batcht):
     batch = batcht
     train_x = torch.from_numpy(np.random.uniform(0, 1, size=(batch, kol)).astype(np.float32))
     return train_x
 
 
-def Trainy(kol, batch):
+def Trainy(kol, left_batch, batch):
     f = open("10_million_password_list_top_1000000.txt.txt", 'r')
     l = list(map(str, f.read().split()))
-    l = l[:batch]
+    l = l[left_batch:left_batch + batch]
     f.close()
     train_y = []
     for i in range(len(l)):
@@ -56,12 +57,10 @@ def Run_hab():
     k_model = 0
     train_dop = True
     # не никакого смысла в проходе больше одного 1 ошибка на следующих 0
-    Gk_old = 1
-    Gk = Gk_old
-    Gk_dop = 5
-    Dk = 1
+    D_train = False
     epoch_kol = int(1e5)
-    batch = 100000
+    batch = 30000
+    left_batch = 20000
     try:
         ff = open('conf_model.txt', 'r')
         k_model = int(ff.read())
@@ -92,7 +91,7 @@ def Run_hab():
     # optimizer = torch.optim.Adam(net.parameters(), lr=net.learning_rate)
     Goptimizer = torch.optim.Adam(G.parameters())
     Doptimizer = torch.optim.Adam(D.parameters())
-    y_train = Trainy(G.out(), batch)
+    y_train = Trainy(G.out(), left_batch, batch)
     y_train = y_train.to(dev)
     # Gdop = torch.ones([np.ones(G.out()).shape[0], 1])
     # Gdop = Gdop.to(dev)
@@ -108,76 +107,23 @@ def Run_hab():
         loss_max = float(ft.read())
         ft.close()
     # ---------------------------------------------------------------------------------------------------
-    Dsr_loss = 1
+    print("Train")
+    real_label = torch.ones(batch, 1).to(dev)
+    fake_label = torch.zeros(batch, 1).to(dev)
+    fake_targets = torch.ones(batch, 1).to(dev)
+    Dsr_loss = 0
     tim = time.time()
     for epoch in range(epoch_kol):
         Gsr_loss = 0
         # if Dsr_loss > 1e-05:
         Dsr_loss = 0
-        for k in range(Dk):
-            x_train_set = Trainx(G.inp(), batch)
-            x_train_set = x_train_set.to(dev)
-            real_outputs = D(y_train)
-            real_label = torch.ones(batch, 1).to(dev)
-            fake_inputs = G(x_train_set)
-            fake_outputs = D(fake_inputs)
-            fake_label = torch.zeros(batch, 1).to(dev)
-            outputs = torch.cat((real_outputs, fake_outputs), 0)
-            targets = torch.cat((real_label, fake_label), 0)
-            D_loss = Dcriterion(outputs, targets)
-            Doptimizer.zero_grad()
-            D_loss.backward()
-            Doptimizer.step()
-            Dsr_loss += float(D_loss.item())
-            # for imgs, x_train in zip(y_train, x_train_set):
-            #     real_outputs = D(imgs)
-            #     real_label = torch.ones(1).to(dev)
-            #     fake_inputs = G(x_train)
-            #     fake_outputs = D(fake_inputs)
-            #     fake_label = torch.zeros(1).to(dev)
-            #     outputs = torch.cat((real_outputs, fake_outputs), 0)
-            #     targets = torch.cat((real_label, fake_label), 0)
-            #     D_loss = Dcriterion(outputs, targets)
-            #     Doptimizer.zero_grad()
-            #     D_loss.backward()
-            #     Doptimizer.step()
-            #     Dsr_loss += float(D_loss.item())
-        if Dk != 0:
-            Dsr_loss /= batch * Dk
-        else:
-            Dsr_loss = 1e10
-        for k in range(Gk):
-            x_train_set = Trainx(G.inp(), batch)
-            x_train_set = x_train_set.to(dev)
-            fake_inputs = G(x_train_set)
-            fake_outputs = D(fake_inputs)
-            fake_targets = torch.ones(batch, 1).to(dev)
-            G_loss = Gcriterion(fake_outputs, fake_targets)
-            Goptimizer.zero_grad()
-            G_loss.backward()
-            Goptimizer.step()
-            Gsr_loss += float(G_loss.item())
-            # for x_train in x_train_set:
-            #     fake_inputs = G(x_train)
-            #     fake_outputs = D(fake_inputs)
-            #     fake_targets = torch.ones(1).to(dev)
-            #     G_loss = Gcriterion(fake_outputs, fake_targets)
-            #     Goptimizer.zero_grad()
-            #     G_loss.backward()
-            #     Goptimizer.step()
-            #     Gsr_loss += float(G_loss.item())
+        Dsr_loss = Dtrain(D, D_train, Dcriterion, Doptimizer, Dsr_loss, G, batch, dev, fake_label, real_label, y_train)
+        # ------------------------------------------------------------------------------------------------------
+        Gsr_loss = Gtrain(D, G, Gcriterion, Goptimizer, Gsr_loss, batch, dev, fake_targets)
         print(epoch)
-        if Gk != 0:
-            Gsr_loss /= batch * Gk
-        else:
-            Gsr_loss = 1e10
-        if Gsr_loss >= 0.95:
-            Gk = Gk_dop
-        else:
-            Gk = Gk_old
         print("D:", Dsr_loss)
         print("G:", Gsr_loss)
-        if 10 ** (-4) >= Dsr_loss or Dk == 0:
+        if 10 ** (-4) >= Dsr_loss:
             if Gsr_loss < loss_max:
                 loss_max = Gsr_loss
                 torch.save(G.state_dict(), fr"models\Gmodel{k_model}_max.pth")
@@ -185,7 +131,7 @@ def Run_hab():
                 floss_max = open("floss_dir\\floss_max.txt", 'w')
                 floss_max.write(str(Dsr_loss))
                 floss_max.close()
-        if epoch % 1 == 0:
+        if epoch % 10 == 0:
             torch.save(G.state_dict(), fr"models\Gmodel{k_model}.pth")
             torch.save(D.state_dict(), fr"models\Dmodel{k_model}.pth")
             print("Save model")
@@ -196,6 +142,36 @@ def Run_hab():
             torch.save(D.state_dict(), fr"models\Dmodel{k_model}.pth")
             print("Save model")
         print(time.time() - tim)
+
+
+def Gtrain(D, G, Gcriterion, Goptimizer, Gsr_loss, batch, dev, fake_targets):
+    x_train_set = Trainx(G.inp(), batch).to(dev)
+    fake_inputs = G(x_train_set)
+    fake_outputs = D(fake_inputs)
+    G_loss = Gcriterion(fake_outputs, fake_targets)
+    Goptimizer.zero_grad()
+    G_loss.backward()
+    Goptimizer.step()
+    Gsr_loss += float(G_loss.item())
+    Gsr_loss /= batch
+    return Gsr_loss
+
+
+def Dtrain(D, D_train, Dcriterion, Doptimizer, Dsr_loss, G, batch, dev, fake_label, real_label, y_train):
+    x_train_set = Trainx(G.inp(), batch).to(dev)
+    real_outputs = D(y_train)
+    fake_inputs = G(x_train_set)
+    fake_outputs = D(fake_inputs)
+    outputs = torch.cat((real_outputs, fake_outputs), 0)
+    targets = torch.cat((real_label, fake_label), 0)
+    D_loss = Dcriterion(outputs, targets)
+    Doptimizer.zero_grad()
+    # if D_train:
+    D_loss.backward()
+    Doptimizer.step()
+    Dsr_loss += float(D_loss.item())
+    Dsr_loss /= batch
+    return Dsr_loss
 
 
 def print_hi(name):

@@ -12,6 +12,7 @@ def Trainx(kol):
 
 
 def Run():
+    # можно переделать сделать выход не ввидде asci а в виде конкретных символов
     ff = open('conf_model.txt', 'r')
     k_model = int(ff.read()) - 1
     # k_model = 4
@@ -29,7 +30,7 @@ def Run():
     D.to(dev)
     f = open("Output.txt", 'w')
     f_log = open("Output_log.txt", 'w')
-    kol_passsord = 1
+    kol_passsord = 10
     k = 0
     for i in range(kol_passsord):
         h = True
@@ -40,10 +41,11 @@ def Run():
             out = G(x)
             prow = D(out)
             if k % 1e3 == 0:
-                print(k)
+                print(k, prow.detach().cpu().numpy()[0])
             k += 1
             # print(prow.detach().cpu().numpy()[0])
-            if prow.detach().cpu().numpy()[0] >= 0.5:
+            # if prow.detach().cpu().numpy()[0] >= 0.5:
+            if True:
                 print(i)
                 h = False
                 out_np = out.detach().cpu().numpy()
